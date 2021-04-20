@@ -34,7 +34,7 @@ Connect to the postgres container and create an user table
 ```
 psql -h localhost -p 5000 -d postgres -U postgres
 
-create table users (id serial primary key, name varchar(255));
+create table users (id serial primary key, name varchar(255), id_bigint bigint);
 ```
 
 Create a connector bewteen the source postgres and the kafka container

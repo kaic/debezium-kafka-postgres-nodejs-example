@@ -1,37 +1,55 @@
-const { Kafka } = require("kafkajs");
 const { Pool } = require("pg");
+const logger = require('./logger')
+const { Kafka } = require("kafkajs");
 
 const kafka = new Kafka({
   clientId: "consumer-app",
-  brokers: ["localhost:9092"],
+  brokers: ["kafka:9092"],
 });
 
 const postgresPool = new Pool({
-  user: "postgres",
-  database: "postgres",
-  password: "postgres",
-  port: 5001,
-  host: "localhost",
+  user: "pagarme",
+  database: "pagarme",
+  password: "",
+  port: 5432,
+  host: "",
   keepAlive: true,
-  max: 90,
+  max: 10,
 });
 
+const TABLE_NAME = "BalanceOperations";
+const NEW_ID_COLUMN_NAME = "id_bigint";
+
 (async () => {
-  postgresPool
+
+  await postgresPool
     .query("SELECT NOW() as now")
-    .then((_) => console.log("Connected to postgres"))
+    .then((_) => logger.info('Worker has connnected to Postgres'))
     .catch(console.error);
 
   const consumer = kafka.consumer({ groupId: "consumer-group" });
 
   await consumer.connect();
 
-  await consumer.subscribe({ topic: "dbserver1.public.users" });
+  await consumer.subscribe({ topic: "dbserver1.public.BalanceOperations" });
+
+  logger.info('Worker ready to go!')
+
+  const postgresConnection = await postgresPool.connect();
+
+  const { rows, count } = await postgresConnection.query(
+    "SELECT COUNT(1) from $1 where $2 is not null",
+    [TABLE_NAME, NEW_ID_COLUMN_NAME]
+  );
+
+  logger.info(`There are ${count} rows to update`)
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
       const parsedMessage = JSON.parse(message.value.toString());
-      const userPayload = parsedMessage.payload.after;
+      const row = parsedMessage.payload.after;
+
+      logger.info('Message Incoming', parsedMessage)
 
       const postgresConnection = await postgresPool.connect();
 
@@ -42,21 +60,14 @@ const postgresPool = new Pool({
           "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"
         );
 
-        const doesUserAlreadyExist = await postgresConnection.query(
-          "select exists(select 1 from users where id=$1)",
-          [userPayload.id]
+        const {
+          rows,
+        } = await postgresConnection.query(
+          "UPDATE users set id_bigint = $1 WHERE id = $1 RETURNING *",
+          [row.id]
         );
 
-        if (!doesUserAlreadyExist.rows[0].exists) {
-          const {
-            rows,
-          } = await postgresConnection.query(
-            "INSERT INTO users(id, name) VALUES($1, $2) RETURNING *",
-            [userPayload.id, userPayload.name]
-          );
-
-          console.log(rows);
-        }
+        logger.info(`Row ${row.id} updated`, rows)
 
         await postgresConnection.query("COMMIT");
       } catch (e) {
