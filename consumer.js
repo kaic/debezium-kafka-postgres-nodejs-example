@@ -8,7 +8,7 @@ const { Kafka } = require("kafkajs");
 
   const kafka = new Kafka({
     clientId: "consumer-worker",
-    brokers: ["kafka:9092"],
+    brokers: ["broker:29092", "localhost:9092"],
   });
 
   const postgresPool = new Pool({
