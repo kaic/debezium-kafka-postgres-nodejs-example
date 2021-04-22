@@ -36,5 +36,6 @@ services:
     volumes:
       - './:/app'
     depends_on:
-      kafka:
-        condition: service_started
+      - connect
+      - kafka
+
