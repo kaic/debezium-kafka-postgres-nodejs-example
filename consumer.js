@@ -42,7 +42,7 @@ const { Kafka } = require("kafkajs");
   const postgresConnection = await postgresPool.connect();
 
   const { rows, count } = await postgresConnection.query(
-    `SELECT COUNT(1) from ${TABLE_NAME} where ${NEW_ID_COLUMN_NAME} is not null`
+    `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is not null`
   );
 
   logger.info(`There are ${count} rows to update`)
@@ -66,7 +66,7 @@ const { Kafka } = require("kafkajs");
         const {
           rows,
         } = await postgresConnection.query(
-          "UPDATE users set id_bigint = $1 WHERE id = $1 RETURNING *",
+          `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1 RETURNING *`,
           [row.id]
         );
 
