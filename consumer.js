@@ -6,8 +6,6 @@ const { Kafka } = require("kafkajs");
 
   logger.info('Worker is starting')
 
-  await setTimeout(() => logger.info('Waiting 10 seconds to start'), 10000);
-
   const kafka = new Kafka({
     clientId: "consumer-worker",
     brokers: ["kafka:9092"],
