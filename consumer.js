@@ -42,8 +42,7 @@ const { Kafka } = require("kafkajs");
   const postgresConnection = await postgresPool.connect();
 
   const { rows, count } = await postgresConnection.query(
-    "SELECT COUNT(1) from $1 where $2 is not null",
-    [TABLE_NAME, NEW_ID_COLUMN_NAME]
+    `SELECT COUNT(1) from ${TABLE_NAME} where ${NEW_ID_COLUMN_NAME} is not null`
   );
 
   logger.info(`There are ${count} rows to update`)
