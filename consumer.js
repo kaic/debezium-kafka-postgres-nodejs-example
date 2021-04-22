@@ -8,11 +8,11 @@ const kafka = new Kafka({
 });
 
 const postgresPool = new Pool({
-  user: "pagarme",
-  database: "pagarme",
+  user: "",
+  database: "",
   password: "",
   port: 5432,
-  host: "",
+  host: "localhost",
   keepAlive: true,
   max: 10,
 });

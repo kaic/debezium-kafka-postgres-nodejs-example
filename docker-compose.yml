@@ -13,7 +13,7 @@ services:
     links:
       - zookeeper
     environment:
-      - 'ZOOKEEPER_CONNECT=zookeeper:2181'
+      - 'ZOOKEEPER_CONNECT=zookeeper:2181'  
   connect:
     image: 'debezium/connect:${DEBEZIUM_VERSION}'
     ports:
