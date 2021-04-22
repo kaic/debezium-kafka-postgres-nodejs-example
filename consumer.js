@@ -2,8 +2,12 @@ const { Pool } = require("pg");
 const logger = require('./logger')
 const { Kafka } = require("kafkajs");
 
+logger.info('Worker is starting')
+
+setTimeout(()=>logger.info('Waiting 10 seconds to start'), 10000);
+
 const kafka = new Kafka({
-  clientId: "consumer-app",
+  clientId: "consumer-worker",
   brokers: ["kafka:9092"],
 });
 
