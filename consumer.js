@@ -2,29 +2,29 @@ const { Pool } = require("pg");
 const logger = require('./logger')
 const { Kafka } = require("kafkajs");
 
-logger.info('Worker is starting')
-
-setTimeout(()=>logger.info('Waiting 10 seconds to start'), 10000);
-
-const kafka = new Kafka({
-  clientId: "consumer-worker",
-  brokers: ["kafka:9092"],
-});
-
-const postgresPool = new Pool({
-  user: "",
-  database: "",
-  password: "",
-  port: 5432,
-  host: "localhost",
-  keepAlive: true,
-  max: 10,
-});
-
-const TABLE_NAME = "BalanceOperations";
-const NEW_ID_COLUMN_NAME = "id_bigint";
-
 (async () => {
+
+  logger.info('Worker is starting')
+
+  await setTimeout(() => logger.info('Waiting 10 seconds to start'), 10000);
+
+  const kafka = new Kafka({
+    clientId: "consumer-worker",
+    brokers: ["kafka:9092"],
+  });
+
+  const postgresPool = new Pool({
+    user: "",
+    database: "",
+    password: "",
+    port: 5432,
+    host: "localhost",
+    keepAlive: true,
+    max: 10,
+  });
+
+  const TABLE_NAME = "BalanceOperations";
+  const NEW_ID_COLUMN_NAME = "id_bigint";
 
   await postgresPool
     .query("SELECT NOW() as now")
