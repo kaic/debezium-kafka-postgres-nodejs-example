@@ -5,7 +5,7 @@ const { Kafka } = require("kafkajs");
 
 const brokers = [process.env.BROKER_ENDPOINT_1, process.env.BROKER_ENDPOINT_2, process.env.BROKER_ENDPOINT_3]
 
-function run () {
+async function run () {
 
   logger.info('Worker is starting')
 
