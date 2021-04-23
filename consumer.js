@@ -32,13 +32,13 @@ async function run () {
 
   const postgresConnection = await postgresPool.connect();  
 
-  const { rows } = await postgresConnection.query(
-    `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null`
-  );
+  // const { rows } = await postgresConnection.query(
+  //   `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null`
+  // );
 
-  count = rows[0].count
+  // count = rows[0].count
 
-  console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
+  // console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
   
   let batch = []
    do {
