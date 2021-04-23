@@ -15,7 +15,7 @@ const TABLE_NAME = "BalanceOperations"
 const NEW_ID_COLUMN_NAME = "id_bigint"
 const BATCH_SIZE = Number(process.env.BATCH_SIZE) || 100
 let offset = Number(process.env.OFFSET) || 0
-let count = 0
+let count = Number(process.env.COUNT) || 0
 let sum = 0
 
 async function run () {
