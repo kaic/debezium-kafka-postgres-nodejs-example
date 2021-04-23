@@ -36,7 +36,7 @@ function run () {
 
   await consumer.connect();
 
-  await consumer.subscribe({ topic: "dbserver1.public.BalanceOperations" });
+  await consumer.subscribe({ topic: process.env.KAFKA_TOPIC });
 
   logger.info('Worker ready to go!')
 
