@@ -1,24 +1,27 @@
+require('dotenv').config()
 const { Pool } = require("pg");
 const logger = require('./logger')
 const { Kafka } = require("kafkajs");
 
-(async () => {
+const brokers = [process.env.BROKER_ENDPOINT_1, process.env.BROKER_ENDPOINT_2, process.env.BROKER_ENDPOINT_3]
+
+function run () {
 
   logger.info('Worker is starting')
 
   const kafka = new Kafka({
+    brokers,
     clientId: "consumer-worker",
-    brokers: ["broker:29092", "localhost:9092"],
   });
 
   const postgresPool = new Pool({
-    user: "",
-    database: "",
-    password: "",
-    port: 5432,
-    host: "localhost",
+    user: process.env.PG_USER,
+    database: process.env.PG_DB,
+    password: process.env.PG_PASS,
+    port: process.env.PG_PORT,
+    host: process.env.PG_HOST,
     keepAlive: true,
-    max: 10,
+    max: 50,
   });
 
   const TABLE_NAME = "BalanceOperations";
@@ -29,7 +32,7 @@ const { Kafka } = require("kafkajs");
     .then((_) => logger.info('Worker has connnected to Postgres'))
     .catch(console.error);
 
-  const consumer = kafka.consumer({ groupId: "consumer-group" });
+  const consumer = kafka.consumer({ groupId: "kafka-connect" });
 
   await consumer.connect();
 
@@ -61,14 +64,16 @@ const { Kafka } = require("kafkajs");
           "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"
         );
 
-        const {
-          rows,
-        } = await postgresConnection.query(
-          `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1 RETURNING *`,
-          [row.id]
-        );
-
-        logger.info(`Row ${row.id} updated`, rows)
+        if(!row.id_bigint) {
+          const {
+            rows,
+          } = await postgresConnection.query(
+            `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1 RETURNING *`,
+            [row.id]
+          );
+  
+          logger.info(`Row ${row.id} updated`, rows)
+        }
 
         await postgresConnection.query("COMMIT");
       } catch (e) {
@@ -79,4 +84,6 @@ const { Kafka } = require("kafkajs");
       }
     },
   });
-})();
+}
+
+(async () => run())();
