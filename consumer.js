@@ -41,16 +41,17 @@ async function run () {
   console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
   
   let batch = []
-  while (offset <= count) {
+   do {
     const { rows } = await postgresConnection.query(
-      `SELECT * from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null LIMIT ${BATCH_SIZE} OFFSET ${offset}`
+      `SELECT * from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null order by id asc LIMIT ${BATCH_SIZE} OFFSET ${offset}`
     );
 
     batch = rows
     
     await batch.map(updateRow)
     offset += BATCH_SIZE
-  }
+    console.log({offset, BATCH_SIZE})
+  } while (offset <  count)
 
   console.timeEnd(timetaken);
   console.log(`WORKER JOB FINISHED`)
@@ -60,9 +61,9 @@ async function updateRow(row) {
   const postgresConnection = await postgresPool.connect();
 
   try {
-    await postgresConnection.query("BEGIN")
-
     if(!row.id_bigint) {
+      await postgresConnection.query("BEGIN")
+
       const {
         rows,
       } = await postgresConnection.query(
@@ -74,7 +75,6 @@ async function updateRow(row) {
       console.log(`[${count}/${sum}] UPDATED ROWS - ID ${row.id}`)
       await postgresConnection.query("COMMIT");
     }
-
   } catch (e) {
     await postgresConnection.query("ROLLBACK");
     throw e;
