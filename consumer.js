@@ -1,5 +1,6 @@
 require('dotenv').config()
 const { Pool } = require("pg");
+const Promise = require('bluebird')
 
 const postgresPool = new Pool({
   user: process.env.PG_USER,
@@ -10,6 +11,8 @@ const postgresPool = new Pool({
   keepAlive: true,
   max: 60,
 });
+
+const postgresConnection = await postgresPool.connect();  
 
 const TABLE_NAME = "BalanceOperations"
 const NEW_ID_COLUMN_NAME = "id_bigint"
@@ -30,7 +33,6 @@ async function run () {
   const timetaken = "TIME TAKEN BY THE WORKER TO COMPLETE THE JOB";
   console.time(timetaken);
 
-  const postgresConnection = await postgresPool.connect();  
 
   // const { rows } = await postgresConnection.query(
   //   `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null`
@@ -40,17 +42,17 @@ async function run () {
 
   // console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
   
-  let batch = []
-   do {
+  do {
     const { rows } = await postgresConnection.query(
       `SELECT * from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null order by id asc LIMIT ${BATCH_SIZE} OFFSET ${offset}`
-    );
-
-    batch = rows
+      );
     
-    await batch.map(updateRow)
+    await Promise.map(rows, updateRow, {
+      concurrency: 10
+    })
+
     offset += BATCH_SIZE
-    console.log({offset, BATCH_SIZE})
+
   } while (offset <  count)
 
   console.timeEnd(timetaken);
@@ -58,8 +60,6 @@ async function run () {
 }
 
 async function updateRow(row) {
-  const postgresConnection = await postgresPool.connect();
-
   try {
     if(!row.id_bigint) {
       await postgresConnection.query("BEGIN")
