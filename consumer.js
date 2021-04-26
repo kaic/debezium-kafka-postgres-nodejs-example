@@ -12,7 +12,7 @@ const postgresPool = new Pool({
   max: 60,
 });
 
-const postgresConnection = await postgresPool.connect();  
+let postgresConnection = null;
 
 const TABLE_NAME = "BalanceOperations"
 const NEW_ID_COLUMN_NAME = "id_bigint"
@@ -83,4 +83,7 @@ async function updateRow(row) {
   }
 }
 
-(() => run())();
+(async () => {
+  postgresConnection = await postgresPool.connect();  
+  await run();
+})();
