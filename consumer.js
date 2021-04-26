@@ -78,8 +78,6 @@ async function updateRow(row) {
   } catch (e) {
     await postgresConnection.query("ROLLBACK");
     throw e;
-  } finally {
-    await postgresConnection.release();
   }
 }
 
