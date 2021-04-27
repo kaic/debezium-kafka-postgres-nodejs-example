@@ -9,15 +9,17 @@ const pgPool = new Pool({
   port: process.env.PG_PORT,
   host: process.env.PG_HOST,
   keepAlive: true,
-  statement_timeout: 300000,
-  max: 90
+  statement_timeout: Number(process.env.PG_TIMEOUT),
+  max: 1
 })
 let pgConnection = null
 
 const TABLE_NAME = "BalanceOperations"
 const NEW_ID_COLUMN_NAME = "id_bigint"
 const BATCH_SIZE = Number(process.env.BATCH_SIZE) || 1000
+const UPDATE_ORDER = process.env.UPDATE_ORDER || 'asc'
 const CONCURRENCY = Number(process.env.CONCURRENCY) || 100
+const runCountQuery = process.env.RUN_COUNT_QUERY === 'true' ? true : false
 let count = Number(process.env.COUNT) || 0
 let rowsUpdated = 0
 let rowsNotUpdated = 0
@@ -29,30 +31,29 @@ function delay(ms) {
 
 async function run() {
 
-  console.log('WORKER JOB IS STARTING WITH PARAMS', { TABLE_NAME, NEW_ID_COLUMN_NAME, BATCH_SIZE, CONCURRENCY, COUNT: count })
+  console.log('WORKER JOB IS STARTING WITH PARAMS', { BATCH_SIZE, CONCURRENCY, COUNT: count, PG_TIMEOUT: Number(process.env.PG_TIMEOUT), RUN_COUNT_QUERY: process.env.RUN_COUNT_QUERY })
 
   await pgPool
     .query("SELECT NOW() as now")
     .then((_) => console.log('WORKER HAS CONNETED TO POSTGRES'))
     .catch(console.error)
 
-  pgConnection = await pgPool.connect()  
+  pgConnection = await pgPool.connect()
 
   const workerJobTimetaken = "TIME TAKEN BY THE WORKER TO COMPLETE THE JOB"
   console.time(workerJobTimetaken)
 
-  const { rows } = await pgConnection.query(
-    `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null`
-  )
+  if (runCountQuery) {
+    const { rows } = await pgConnection.query(
+      `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null`
+    )
+    count = Number(rows[0].count)
+  }
 
-  count = Number(rows[0].count)
   console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
 
   await delay(1000)
 
-  //retirar do while
-  //salvar infos no banco
-  //salvar batchs não processados no banco
   while (processeds < count) {
     await processBatch()
   }
@@ -75,7 +76,7 @@ async function processBatch(retryAttempt = 0) {
   }
 
   try {
-    const { rows } = await pgConnection.query(`SELECT * from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null order by id asc LIMIT ${BATCH_SIZE}`)
+    const { rows } = await pgConnection.query(`SELECT * from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null order by id ${UPDATE_ORDER} LIMIT ${BATCH_SIZE}`)
 
     await Promise.map(rows, updateRow, {
       concurrency: CONCURRENCY
@@ -86,10 +87,9 @@ async function processBatch(retryAttempt = 0) {
     console.log(`RETRYING PROCESSING FOR BATCH ${batchNumber}`)
 
     retryAttempt++
+    await delay(100)
     await processBatch(retryAttempt)
   }
-
-  
 }
 
 async function updateRow(params) {
@@ -118,12 +118,12 @@ async function updateRow(params) {
     await pgConnection.query("ROLLBACK")
     console.log(`ERROR ON PROCESSING ROW ID ${row.id} - RETRYING`)
     retryAttempt++
+    await delay(1000)
     await updateRow({ row, retryAttempt })
-
   }
 
   processeds++
-  
+
 }
 
 (async () => await run())()
