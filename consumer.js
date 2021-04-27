@@ -105,14 +105,16 @@ async function updateRow(params) {
   try {
     await pgConnection.query("BEGIN")
 
-    await pgConnection.query(
-      `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1`,
-      [row.id]
-    )
-
-    await pgConnection.query("COMMIT")
-    rowsUpdated++
-    console.log(`SUCCESS ON PROCESSING ROW ID ${row.id} ON ATTEMPT ${retryAttempt} | UPDATEDS [${count}/${rowsUpdated}]`)
+    if(!row.id_bigint) {
+      await pgConnection.query(
+        `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1`,
+        [row.id]
+      )
+  
+      await pgConnection.query("COMMIT")
+      rowsUpdated++
+      console.log(`SUCCESS ON PROCESSING ROW ID ${row.id} ON ATTEMPT ${retryAttempt} | UPDATEDS [${count}/${rowsUpdated}]`)
+    }
 
   } catch (error) {
     await pgConnection.query("ROLLBACK")
