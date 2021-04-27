@@ -94,7 +94,7 @@ async function processBatch(retryAttempt = 0) {
 
 async function updateRow(params) {
   const row = params.row || params
-  const retryAttempt = params.retryAttempt || 0
+  let retryAttempt = params.retryAttempt || 0
 
   if (retryAttempt > 3) {
     console.log(`ROW ${row.id} EXCEEDED RETRY ATTEMPTS, SKIPPING | NOT UPDATEDS - [${count}/${rowsNotUpdated}]`)
