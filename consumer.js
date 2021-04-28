@@ -100,9 +100,9 @@ async function run() {
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
       const parsedMessage = JSON.parse(message.value.toString())
-      console.log('MESSAGE INCOMING', parsedMessage)
       
       const row = parsedMessage.after
+      console.log(`MESSAGE INCOMING FOR ROW ${row.id}`)
       await updateRow(row)
 
     }
