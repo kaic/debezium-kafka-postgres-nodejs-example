@@ -34,9 +34,9 @@ async function updateRow(row, retryAttempt = 0) {
     return
   }
 
-  try {
-    const pgConnection = await pgPool.connect()
+  const pgConnection = await pgPool.connect()
 
+  try {
     await pgConnection.query("BEGIN")
 
     if (!row.id_bigint) {
