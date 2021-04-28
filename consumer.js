@@ -1,89 +1,112 @@
 require('dotenv').config()
-const { Pool } = require("pg");
-const logger = require('./logger')
-const { Kafka } = require("kafkajs");
+const { Pool } = require("pg")
+const Kafka = require("./kafka")
+const Promise = require('bluebird')
 
-const brokers = [process.env.BROKER_ENDPOINT_1, process.env.BROKER_ENDPOINT_2, process.env.BROKER_ENDPOINT_3]
+let rowsUpdated = 0
+let rowsNotUpdated = 0
+let pgConnection = null
 
-async function run () {
+const TABLE_NAME = "BalanceOperations"
+const NEW_ID_COLUMN_NAME = "id_bigint"
+const runCountQuery = process.env.RUN_COUNT_QUERY === 'true' ? true : false
 
-  logger.info('Worker is starting')
+async function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
-  const kafka = new Kafka({
-    brokers,
-    clientId: "consumer-worker",
-  });
+async function updateRow(row, retryAttempt = 0) {
 
-  const postgresPool = new Pool({
+  if (retryAttempt > 3) {
+    rowsNotUpdated++
+    console.log(`ROW ${row.id} EXCEEDED RETRY ATTEMPTS, SKIPPING | [${rowsNotUpdated} ROWS NOT UPDATED]`)
+    return
+  }
+
+  try {
+    const pgConnection = await pgPool.connect()
+
+    await pgConnection.query("BEGIN")
+
+    if (!row.id_bigint) {
+      await pgConnection.query(
+        `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1`,
+        [row.id]
+      )
+
+      await pgConnection.query("COMMIT")
+      rowsUpdated++
+      console.log(`SUCCESS ON PROCESSING ROW ID ${row.id} ON ATTEMPT ${retryAttempt} | [${rowsUpdated} ROWS UPDATED]`)
+    }
+
+  } catch (error) {
+    await pgConnection.query("ROLLBACK")
+
+    console.log(`ERROR ON PROCESSING ROW ID ${row.id} - RETRYING`)
+    retryAttempt++
+    await delay(100)
+    await updateRow({ row, retryAttempt })
+  }
+
+  await pgConnection.release()
+}
+
+async function run() {
+  const pgPool = new Pool({
+    keepAlive: true,
+    host: process.env.PG_HOST,
     user: process.env.PG_USER,
+    port: process.env.PG_PORT,
     database: process.env.PG_DB,
     password: process.env.PG_PASS,
-    port: process.env.PG_PORT,
-    host: process.env.PG_HOST,
-    keepAlive: true,
-    max: 50,
-  });
+    max: process.env.PG_MAX_CONNECTIONS,
+    statement_timeout: Number(process.env.PG_TIMEOUT),
+  })
 
-  const TABLE_NAME = "BalanceOperations";
-  const NEW_ID_COLUMN_NAME = "id_bigint";
+  console.log('WORKER JOB IS STARTING WITH PARAMS', { PG_TIMEOUT: Number(process.env.PG_TIMEOUT), RUN_COUNT_QUERY: process.env.RUN_COUNT_QUERY })
 
-  await postgresPool
+
+  await pgPool
     .query("SELECT NOW() as now")
-    .then((_) => logger.info('Worker has connnected to Postgres'))
-    .catch(console.error);
+    .then((_) => console.log('WORKER HAS CONNETED TO POSTGRES'))
+    .catch(console.error)
 
-  const consumer = kafka.consumer({ groupId: "kafka-connect" });
+  const kafkaConfig = {
+    ssl: true,
+    brokers: process.env.BROKERS
+  }
+  const kafka = new Kafka(kafkaConfig)
+  const consumer = kafka.consumer({ groupId: "kafka-connect" })
+  await consumer.connect()
+  await consumer.subscribe({ topic: process.env.KAFKA_TOPIC })
 
-  await consumer.connect();
+  console.log(`WORKER HAS SUBSCRIBE TO ${process.env.KAFKA_TOPIC}`)
 
-  await consumer.subscribe({ topic: process.env.KAFKA_TOPIC });
+  if (runCountQuery) {
+    const pgConnection = await pgPool.connect()
 
-  logger.info('Worker ready to go!')
+    const { rows } = await pgConnection.query(
+      `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null`
+    )
+    const count = Number(rows[0].count)
 
-  const postgresConnection = await postgresPool.connect();
+    console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
 
-  const { rows, count } = await postgresConnection.query(
-    `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is not null`
-  );
+    await pgConnection.release()
+  }
 
-  logger.info(`There are ${count} rows to update`)
+  await delay(1000)
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
-      const parsedMessage = JSON.parse(message.value.toString());
-      const row = parsedMessage.payload.after;
+      const parsedMessage = JSON.parse(message.value.toString())
+      const row = parsedMessage.payload.after
 
-      logger.info('Message Incoming', parsedMessage)
+      console.log('MESSAGE INCOMING', parsedMessage)
 
-      const postgresConnection = await postgresPool.connect();
-
-      try {
-        await postgresConnection.query("BEGIN");
-
-        await postgresConnection.query(
-          "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"
-        );
-
-        if(!row.id_bigint) {
-          const {
-            rows,
-          } = await postgresConnection.query(
-            `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1 RETURNING *`,
-            [row.id]
-          );
-  
-          logger.info(`Row ${row.id} updated`, rows)
-        }
-
-        await postgresConnection.query("COMMIT");
-      } catch (e) {
-        await postgresConnection.query("ROLLBACK");
-        throw e;
-      } finally {
-        postgresConnection.release();
-      }
-    },
-  });
+      await updateRow(row)
+    }
+  })
 }
 
-(async () => run())();
+(async () => run())()
