@@ -16,7 +16,6 @@ const pgPool = new Pool({
 
 let rowsUpdated = 0
 let rowsNotUpdated = 0
-let pgConnection = null
 
 const TABLE_NAME = "BalanceOperations"
 const NEW_ID_COLUMN_NAME = "id_bigint"
