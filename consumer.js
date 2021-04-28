@@ -1,7 +1,7 @@
 require('dotenv').config()
 const { Pool } = require("pg")
-const Kafka = require("./kafka")
 const Promise = require('bluebird')
+const { setupKafka } = require("./kafka")
 
 let rowsUpdated = 0
 let rowsNotUpdated = 0
@@ -75,7 +75,7 @@ async function run() {
     ssl: true,
     brokers: process.env.BROKERS
   }
-  const kafka = new Kafka(kafkaConfig)
+  const kafka = setupKafka(kafkaConfig)
   const consumer = kafka.consumer({ groupId: "kafka-connect" })
   await consumer.connect()
   await consumer.subscribe({ topic: process.env.KAFKA_TOPIC })

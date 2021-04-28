@@ -19,4 +19,4 @@ const setupKafka = (config) => {
   return kafka
 }
 
-module.exports = setupKafka
+module.exports = { setupKafka }
