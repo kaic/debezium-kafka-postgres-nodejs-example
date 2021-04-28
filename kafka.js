@@ -4,7 +4,7 @@ const setupKafka = (config) => {
   const ssl = config.ssl ?
     { ssl: config.ssl } : {}
 
-  const endpoints = config.endpoints.split(',')
+  const endpoints = config.brokers.split(',')
 
   const kafka = new Kafka({
     brokers: endpoints,
