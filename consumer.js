@@ -100,11 +100,11 @@ async function run() {
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
       const parsedMessage = JSON.parse(message.value.toString())
-      const row = parsedMessage.payload.after
-
       console.log('MESSAGE INCOMING', parsedMessage)
-
+      
+      const row = parsedMessage.payload.after
       await updateRow(row)
+
     }
   })
 }
