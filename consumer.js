@@ -10,9 +10,10 @@ const pgPool = new Pool({
   port: process.env.PG_PORT,
   database: process.env.PG_DB,
   password: process.env.PG_PASS,
-  max: process.env.PG_MAX_CONNECTIONS,
+  max: 1,
   statement_timeout: Number(process.env.PG_TIMEOUT),
 })
+const pgConnection = pgPool.connect()
 
 let rowsUpdated = 0
 let rowsNotUpdated = 0
@@ -32,8 +33,6 @@ async function updateRow(row, retryAttempt = 0) {
     console.log(`ROW ${row.id} EXCEEDED RETRY ATTEMPTS, SKIPPING | [${rowsNotUpdated} ROWS NOT UPDATED]`)
     return
   }
-
-  const pgConnection = await pgPool.connect()
 
   try {
     await pgConnection.query("BEGIN")
@@ -57,13 +56,10 @@ async function updateRow(row, retryAttempt = 0) {
     await delay(100)
     await updateRow({ row, retryAttempt })
   }
-
-  await pgConnection.release()
 }
 
 async function run() {
   console.log('WORKER JOB IS STARTING WITH PARAMS', { PG_TIMEOUT: Number(process.env.PG_TIMEOUT), RUN_COUNT_QUERY: process.env.RUN_COUNT_QUERY })
-
 
   await pgPool
     .query("SELECT NOW() as now")
@@ -82,16 +78,12 @@ async function run() {
   console.log(`WORKER HAS SUBSCRIBE TO ${process.env.KAFKA_TOPIC}`)
 
   if (runCountQuery) {
-    const pgConnection = await pgPool.connect()
-
     const { rows } = await pgConnection.query(
       `SELECT COUNT(1) from "${TABLE_NAME}" where ${NEW_ID_COLUMN_NAME} is null`
     )
     const count = Number(rows[0].count)
 
-    console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
-
-    await pgConnection.release()
+    console.log(`WORKER HAS ${count} ROWS TO UPDATED`)    
   }
 
   await delay(1000)
