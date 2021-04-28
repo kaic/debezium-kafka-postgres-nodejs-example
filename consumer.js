@@ -3,6 +3,17 @@ const { Pool } = require("pg")
 const Promise = require('bluebird')
 const { setupKafka } = require("./kafka")
 
+const pgPool = new Pool({
+  keepAlive: true,
+  host: process.env.PG_HOST,
+  user: process.env.PG_USER,
+  port: process.env.PG_PORT,
+  database: process.env.PG_DB,
+  password: process.env.PG_PASS,
+  max: process.env.PG_MAX_CONNECTIONS,
+  statement_timeout: Number(process.env.PG_TIMEOUT),
+})
+
 let rowsUpdated = 0
 let rowsNotUpdated = 0
 let pgConnection = null
@@ -52,17 +63,6 @@ async function updateRow(row, retryAttempt = 0) {
 }
 
 async function run() {
-  const pgPool = new Pool({
-    keepAlive: true,
-    host: process.env.PG_HOST,
-    user: process.env.PG_USER,
-    port: process.env.PG_PORT,
-    database: process.env.PG_DB,
-    password: process.env.PG_PASS,
-    max: process.env.PG_MAX_CONNECTIONS,
-    statement_timeout: Number(process.env.PG_TIMEOUT),
-  })
-
   console.log('WORKER JOB IS STARTING WITH PARAMS', { PG_TIMEOUT: Number(process.env.PG_TIMEOUT), RUN_COUNT_QUERY: process.env.RUN_COUNT_QUERY })
 
 
