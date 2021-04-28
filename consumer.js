@@ -10,10 +10,10 @@ const pgPool = new Pool({
   port: process.env.PG_PORT,
   database: process.env.PG_DB,
   password: process.env.PG_PASS,
-  max: 1,
+  max: 10,
   statement_timeout: Number(process.env.PG_TIMEOUT),
 })
-const pgConnection = pgPool.connect()
+let pgConnection = null
 
 let rowsUpdated = 0
 let rowsNotUpdated = 0
@@ -60,6 +60,8 @@ async function updateRow(row, retryAttempt = 0) {
 
 async function run() {
   console.log('WORKER JOB IS STARTING WITH PARAMS', { PG_TIMEOUT: Number(process.env.PG_TIMEOUT), RUN_COUNT_QUERY: process.env.RUN_COUNT_QUERY })
+
+  pgConnection = await pgPool.connect()
 
   await pgPool
     .query("SELECT NOW() as now")
