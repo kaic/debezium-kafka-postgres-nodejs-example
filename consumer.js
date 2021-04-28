@@ -102,7 +102,7 @@ async function run() {
       const parsedMessage = JSON.parse(message.value.toString())
       console.log('MESSAGE INCOMING', parsedMessage)
       
-      const row = parsedMessage.payload.after
+      const row = parsedMessage.after
       await updateRow(row)
 
     }
