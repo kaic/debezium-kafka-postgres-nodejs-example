@@ -57,7 +57,7 @@ async function updateRow(row, retryAttempt = 0) {
 
     console.log(`ERROR ON PROCESSING ROW ID ${row.id} - RETRYING`)
     await delay(100)
-    await updateRow(retryAttempt++)
+    await updateRow(row, retryAttempt++)
   }
 }
 
