@@ -17,6 +17,7 @@ let pgConnection = null
 
 let rowsUpdated = 0
 let rowsNotUpdated = 0
+let rowsAlreadyUpdated = 0
 
 const TABLE_NAME = "BalanceOperations"
 const NEW_ID_COLUMN_NAME = "id_bigint"
@@ -34,19 +35,22 @@ async function updateRow(row, retryAttempt = 0) {
     return
   }
 
+  if (row.id_bigint) {
+    rowsAlreadyUpdated++
+    console.log(`ROW ID ${row.id} ALREADY UPDATED | [${rowsAlreadyUpdated} ROWS ALREADY UPDATED]`)
+    return
+  }
+
   try {
     await pgConnection.query("BEGIN")
+    await pgConnection.query(
+      `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1`,
+      [row.id]
+    )
 
-    if (!row.id_bigint) {
-      await pgConnection.query(
-        `UPDATE "${TABLE_NAME}" set ${NEW_ID_COLUMN_NAME} = $1 WHERE id = $1`,
-        [row.id]
-      )
-
-      await pgConnection.query("COMMIT")
-      rowsUpdated++
-      console.log(`SUCCESS ON PROCESSING ROW ID ${row.id} ON ATTEMPT ${retryAttempt} | [${rowsUpdated} ROWS UPDATED]`)
-    }
+    await pgConnection.query("COMMIT")
+    rowsUpdated++
+    console.log(`SUCCESS ON PROCESSING ROW ID ${row.id} ON ATTEMPT ${retryAttempt} | [${rowsUpdated} ROWS UPDATED]`)
 
   } catch (error) {
     await pgConnection.query("ROLLBACK")
@@ -84,7 +88,7 @@ async function run() {
     )
     const count = Number(rows[0].count)
 
-    console.log(`WORKER HAS ${count} ROWS TO UPDATED`)    
+    console.log(`WORKER HAS ${count} ROWS TO UPDATED`)
   }
 
   await delay(1000)
@@ -92,7 +96,7 @@ async function run() {
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
       const parsedMessage = JSON.parse(message.value.toString())
-      
+
       const row = parsedMessage.after
       console.log(`MESSAGE INCOMING FOR ROW ${row.id}`)
       await updateRow(row)
