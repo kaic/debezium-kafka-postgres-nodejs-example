@@ -52,9 +52,8 @@ async function updateRow(row, retryAttempt = 0) {
     await pgConnection.query("ROLLBACK")
 
     console.log(`ERROR ON PROCESSING ROW ID ${row.id} - RETRYING`)
-    retryAttempt++
     await delay(100)
-    await updateRow({ row, retryAttempt })
+    await updateRow(retryAttempt++)
   }
 }
 
